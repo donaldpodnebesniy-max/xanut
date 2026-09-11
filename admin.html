@@ -291,10 +291,44 @@ async function ghGetMeta(path){
   return res.json();
 }
 async function ghPutJson(path, obj, message, sha){
-  const body = { message, content: b64EncodeUtf8(JSON.stringify(obj,null,2)), branch: GH_BRANCH };
+  // GitHub requires the current blob SHA when updating an existing file.
+  // If dataSha is empty, get the current SHA before PUT.
+  if(!sha){
+    const meta = await ghGetMeta(path);
+    if(meta && meta.sha) sha = meta.sha;
+  }
+
+  const body = {
+    message,
+    content: b64EncodeUtf8(JSON.stringify(obj,null,2)),
+    branch: GH_BRANCH
+  };
+
   if(sha) body.sha = sha;
-  const res = await ghApi(path, {method:'PUT', body: JSON.stringify(body)});
-  if(!res.ok){ const err = await res.json().catch(()=>({})); throw new Error((res.status)+' '+(err.message||'ошибка записи')); }
+
+  let res = await ghApi(path, {
+    method:'PUT',
+    body: JSON.stringify(body)
+  });
+
+  // Another tab/device may have changed the file after the SHA was read.
+  // Refresh the SHA once and retry.
+  if(res.status === 409){
+    const meta = await ghGetMeta(path);
+    if(meta && meta.sha){
+      body.sha = meta.sha;
+      res = await ghApi(path, {
+        method:'PUT',
+        body: JSON.stringify(body)
+      });
+    }
+  }
+
+  if(!res.ok){
+    const err = await res.json().catch(()=>({}));
+    throw new Error((res.status)+' '+(err.message||'ошибка записи'));
+  }
+
   return res.json();
 }
 async function ghPutBinary(path, base64Content, message){
@@ -329,53 +363,9 @@ async function sha256Hex(str){
 let D = {products:[],gallery:[],videos:[],settings:{}};
 let dataSha = null;
 
-function mergeUniqueStrings(remoteArr, localArr){
-  remoteArr = remoteArr||[]; localArr = localArr||[];
-  const set = new Set(remoteArr);
-  const merged = remoteArr.slice();
-  localArr.forEach(v=>{ if(!set.has(v)){ merged.push(v); set.add(v); } });
-  return merged;
-}
-function mergeUniqueObjects(remoteArr, localArr){
-  remoteArr = remoteArr||[]; localArr = localArr||[];
-  const seen = new Set(remoteArr.map(x=>JSON.stringify(x)));
-  const merged = remoteArr.slice();
-  localArr.forEach(x=>{ const k=JSON.stringify(x); if(!seen.has(k)){ merged.push(x); seen.add(k); } });
-  return merged;
-}
-
 async function save(message){
   try{
-    // Всегда узнаём актуальный sha непосредственно перед записью — не полагаемся
-    // на значение, полученное давно (например, при входе в панель).
-    let sha = dataSha;
-    let sawUnknownExistingFile = false;
-    try{
-      const meta = await ghGetMeta(GH_DATA_PATH);
-      if(meta){
-        sha = meta.sha;
-        if(dataSha===null) sawUnknownExistingFile = true; // мы не знали, что файл уже есть
-      }else{
-        sha = null;
-      }
-    }catch(metaErr){ /* не получилось уточнить — пробуем со старым значением sha */ }
-
-    if(sawUnknownExistingFile){
-      // На GitHub уже есть файл, о котором наша копия не знала (например, из-за
-      // сбоя при открытии панели). Подмешиваем его содержимое, чтобы случайно
-      // не затереть то, что там реально сохранено.
-      try{
-        const {json} = await ghGetJson(GH_DATA_PATH);
-        if(json){
-          D.products = mergeUniqueObjects(json.products, D.products);
-          D.gallery  = mergeUniqueStrings(json.gallery, D.gallery);
-          D.videos   = mergeUniqueObjects(json.videos, D.videos);
-          D.settings = Object.assign({}, json.settings||{}, D.settings||{});
-        }
-      }catch(mergeErr){ /* не получилось подмешать — сохраняем как есть */ }
-    }
-
-    const resp = await ghPutJson(GH_DATA_PATH, D, message||'Обновление данных сайта', sha);
+    const resp = await ghPutJson(GH_DATA_PATH, D, message||'Обновление данных сайта', dataSha);
     dataSha = resp.content.sha;
     updateGhStatus();
     return true;
