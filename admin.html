@@ -277,11 +277,34 @@ function b64DecodeUtf8(str){ return decodeURIComponent(escape(atob(str.replace(/
 // Метаданные + содержимое файла (JSON). sha:null означает, что файла ещё нет.
 // Добавляем метку времени в query, чтобы гарантированно обойти любое кэширование.
 async function ghGetJson(path){
-  const res = await ghApi(path+`?ref=${GH_BRANCH}&_=${Date.now()}`);
-  if(res.status===404) return {sha:null, json:null};
-  if(!res.ok) throw new Error('GitHub GET '+res.status);
-  const data = await res.json();
-  return {sha:data.sha, json: JSON.parse(b64DecodeUtf8(data.content))};
+  // Сначала пробуем GitHub Contents API (даёт и содержимое, и SHA).
+  try{
+    const res = await ghApi(path+`?ref=${GH_BRANCH}&_=${Date.now()}`);
+    if(res.status===404) return {sha:null, json:null};
+    if(res.ok){
+      const data = await res.json();
+      return {
+        sha:data.sha || null,
+        json:JSON.parse(b64DecodeUtf8(data.content))
+      };
+    }
+  }catch(e){}
+
+  // Если API недоступен/ограничен, ЧТЕНИЕ всё равно должно работать.
+  // data.json публичный, поэтому читаем его напрямую из raw.githubusercontent.com.
+  const rawUrl = GH_RAW_BASE + path + `?_=${Date.now()}`;
+  const rawRes = await fetch(rawUrl, {
+    cache:'no-store',
+    headers:{'Accept':'application/json'}
+  });
+  if(!rawRes.ok){
+    if(rawRes.status===404) return {sha:null, json:null};
+    throw new Error('GitHub GET '+rawRes.status);
+  }
+  return {
+    sha:null,
+    json:JSON.parse(await rawRes.text())
+  };
 }
 // Только метаданные (sha), без парсинга содержимого — нужно для удаления файлов изображений.
 async function ghGetMeta(path){
@@ -291,8 +314,8 @@ async function ghGetMeta(path){
   return res.json();
 }
 async function ghPutJson(path, obj, message, sha){
-  // GitHub Contents API требует SHA для обновления уже существующего файла.
-  // Если SHA потерялся после перезагрузки страницы — получаем его заново.
+  // НИКОГДА не записываем data.json с пустым SHA, если файл уже существует.
+  // После перезагрузки страницы SHA может быть потерян — получаем свежий SHA.
   if(!sha){
     const meta = await ghGetMeta(path);
     if(meta && meta.sha) sha = meta.sha;
@@ -300,27 +323,30 @@ async function ghPutJson(path, obj, message, sha){
 
   const body = {
     message,
-    content: b64EncodeUtf8(JSON.stringify(obj,null,2)),
-    branch: GH_BRANCH
+    content:b64EncodeUtf8(JSON.stringify(normalizeData(obj),null,2)),
+    branch:GH_BRANCH
   };
-  if(sha) body.sha = sha;
+  if(sha) body.sha=sha;
 
-  let res = await ghApi(path, {method:'PUT', body: JSON.stringify(body)});
+  let res=await ghApi(path,{
+    method:'PUT',
+    body:JSON.stringify(body)
+  });
 
-  // Если файл изменился на другом устройстве/вкладке — обновляем SHA и повторяем.
+  // Файл мог измениться на другом устройстве.
   if(res.status===409 || res.status===422){
-    const err = await res.clone().json().catch(()=>({}));
-    if(err.message && /sha/i.test(err.message)){
-      const meta = await ghGetMeta(path);
-      if(meta && meta.sha){
-        body.sha = meta.sha;
-        res = await ghApi(path, {method:'PUT', body: JSON.stringify(body)});
-      }
+    const meta=await ghGetMeta(path);
+    if(meta && meta.sha){
+      body.sha=meta.sha;
+      res=await ghApi(path,{
+        method:'PUT',
+        body:JSON.stringify(body)
+      });
     }
   }
 
   if(!res.ok){
-    const err = await res.json().catch(()=>({}));
+    const err=await res.json().catch(()=>({}));
     throw new Error((res.status)+' '+(err.message||'ошибка записи'));
   }
   return res.json();
