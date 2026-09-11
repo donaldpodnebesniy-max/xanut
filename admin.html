@@ -329,9 +329,53 @@ async function sha256Hex(str){
 let D = {products:[],gallery:[],videos:[],settings:{}};
 let dataSha = null;
 
+function mergeUniqueStrings(remoteArr, localArr){
+  remoteArr = remoteArr||[]; localArr = localArr||[];
+  const set = new Set(remoteArr);
+  const merged = remoteArr.slice();
+  localArr.forEach(v=>{ if(!set.has(v)){ merged.push(v); set.add(v); } });
+  return merged;
+}
+function mergeUniqueObjects(remoteArr, localArr){
+  remoteArr = remoteArr||[]; localArr = localArr||[];
+  const seen = new Set(remoteArr.map(x=>JSON.stringify(x)));
+  const merged = remoteArr.slice();
+  localArr.forEach(x=>{ const k=JSON.stringify(x); if(!seen.has(k)){ merged.push(x); seen.add(k); } });
+  return merged;
+}
+
 async function save(message){
   try{
-    const resp = await ghPutJson(GH_DATA_PATH, D, message||'Обновление данных сайта', dataSha);
+    // Всегда узнаём актуальный sha непосредственно перед записью — не полагаемся
+    // на значение, полученное давно (например, при входе в панель).
+    let sha = dataSha;
+    let sawUnknownExistingFile = false;
+    try{
+      const meta = await ghGetMeta(GH_DATA_PATH);
+      if(meta){
+        sha = meta.sha;
+        if(dataSha===null) sawUnknownExistingFile = true; // мы не знали, что файл уже есть
+      }else{
+        sha = null;
+      }
+    }catch(metaErr){ /* не получилось уточнить — пробуем со старым значением sha */ }
+
+    if(sawUnknownExistingFile){
+      // На GitHub уже есть файл, о котором наша копия не знала (например, из-за
+      // сбоя при открытии панели). Подмешиваем его содержимое, чтобы случайно
+      // не затереть то, что там реально сохранено.
+      try{
+        const {json} = await ghGetJson(GH_DATA_PATH);
+        if(json){
+          D.products = mergeUniqueObjects(json.products, D.products);
+          D.gallery  = mergeUniqueStrings(json.gallery, D.gallery);
+          D.videos   = mergeUniqueObjects(json.videos, D.videos);
+          D.settings = Object.assign({}, json.settings||{}, D.settings||{});
+        }
+      }catch(mergeErr){ /* не получилось подмешать — сохраняем как есть */ }
+    }
+
+    const resp = await ghPutJson(GH_DATA_PATH, D, message||'Обновление данных сайта', sha);
     dataSha = resp.content.sha;
     updateGhStatus();
     return true;
