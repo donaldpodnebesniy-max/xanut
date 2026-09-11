@@ -277,34 +277,21 @@ function b64DecodeUtf8(str){ return decodeURIComponent(escape(atob(str.replace(/
 // Метаданные + содержимое файла (JSON). sha:null означает, что файла ещё нет.
 // Добавляем метку времени в query, чтобы гарантированно обойти любое кэширование.
 async function ghGetJson(path){
-  // Сначала пробуем GitHub Contents API (даёт и содержимое, и SHA).
-  try{
-    const res = await ghApi(path+`?ref=${GH_BRANCH}&_=${Date.now()}`);
-    if(res.status===404) return {sha:null, json:null};
-    if(res.ok){
-      const data = await res.json();
-      return {
-        sha:data.sha || null,
-        json:JSON.parse(b64DecodeUtf8(data.content))
-      };
-    }
-  }catch(e){}
-
-  // Если API недоступен/ограничен, ЧТЕНИЕ всё равно должно работать.
-  // data.json публичный, поэтому читаем его напрямую из raw.githubusercontent.com.
-  const rawUrl = GH_RAW_BASE + path + `?_=${Date.now()}`;
-  const rawRes = await fetch(rawUrl, {
-    cache:'no-store',
-    headers:{'Accept':'application/json'}
-  });
-  if(!rawRes.ok){
-    if(rawRes.status===404) return {sha:null, json:null};
-    throw new Error('GitHub GET '+rawRes.status);
+  const res = await ghApi(path+`?ref=${GH_BRANCH}&_=${Date.now()}`);
+  if(res.status===404) return {sha:null, json:null};
+  const text = await res.text();
+  if(!res.ok) throw new Error('GitHub GET '+res.status+' '+text.slice(0,200));
+  let data;
+  try{ data=JSON.parse(text); }catch(e){ throw new Error('GitHub вернул некорректный ответ при чтении data.json'); }
+  if(!data.content || !String(data.content).trim()){
+    throw new Error('Файл data.json в GitHub пустой');
   }
-  return {
-    sha:null,
-    json:JSON.parse(await rawRes.text())
-  };
+  let decoded;
+  try{ decoded=b64DecodeUtf8(data.content); }catch(e){ throw new Error('Не удалось декодировать data.json из GitHub'); }
+  if(!decoded.trim()) throw new Error('Файл data.json в GitHub пустой');
+  let json;
+  try{ json=JSON.parse(decoded); }catch(e){ throw new Error('Файл data.json в GitHub содержит повреждённый JSON'); }
+  return {sha:data.sha||null, json};
 }
 // Только метаданные (sha), без парсинга содержимого — нужно для удаления файлов изображений.
 async function ghGetMeta(path){
@@ -314,42 +301,27 @@ async function ghGetMeta(path){
   return res.json();
 }
 async function ghPutJson(path, obj, message, sha){
-  // НИКОГДА не записываем data.json с пустым SHA, если файл уже существует.
-  // После перезагрузки страницы SHA может быть потерян — получаем свежий SHA.
   if(!sha){
     const meta = await ghGetMeta(path);
-    if(meta && meta.sha) sha = meta.sha;
+    if(meta && meta.sha) sha=meta.sha;
   }
-
-  const body = {
-    message,
-    content:b64EncodeUtf8(JSON.stringify(normalizeData(obj),null,2)),
-    branch:GH_BRANCH
-  };
+  const body={message,content:b64EncodeUtf8(JSON.stringify(obj,null,2)),branch:GH_BRANCH};
   if(sha) body.sha=sha;
-
-  let res=await ghApi(path,{
-    method:'PUT',
-    body:JSON.stringify(body)
-  });
-
-  // Файл мог измениться на другом устройстве.
+  let res=await ghApi(path,{method:'PUT',body:JSON.stringify(body)});
   if(res.status===409 || res.status===422){
     const meta=await ghGetMeta(path);
     if(meta && meta.sha){
       body.sha=meta.sha;
-      res=await ghApi(path,{
-        method:'PUT',
-        body:JSON.stringify(body)
-      });
+      res=await ghApi(path,{method:'PUT',body:JSON.stringify(body)});
     }
   }
-
+  const text=await res.text();
   if(!res.ok){
-    const err=await res.json().catch(()=>({}));
-    throw new Error((res.status)+' '+(err.message||'ошибка записи'));
+    let err={}; try{err=JSON.parse(text)}catch(e){}
+    throw new Error(res.status+' '+(err.message||text.slice(0,200)||'ошибка записи'));
   }
-  return res.json();
+  let result; try{result=JSON.parse(text)}catch(e){throw new Error('GitHub сохранил файл, но вернул некорректный ответ');}
+  return result;
 }
 async function ghPutBinary(path, base64Content, message){
   const body = { message, content: base64Content, branch: GH_BRANCH };
@@ -380,51 +352,13 @@ async function sha256Hex(str){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-const LOCAL_DATA_CACHE = 'aragats_admin_data_cache_v2';
 let D = {products:[],gallery:[],videos:[],settings:{}};
 let dataSha = null;
-let dataLoadedFromGithub = false;
-
-function normalizeData(data){
-  data = (data && typeof data === 'object') ? data : {};
-  data.products = Array.isArray(data.products) ? data.products : [];
-  data.gallery = Array.isArray(data.gallery) ? data.gallery : [];
-  data.videos = Array.isArray(data.videos) ? data.videos : [];
-  data.settings = (data.settings && typeof data.settings === 'object') ? data.settings : {};
-  return data;
-}
-
-function cacheData(){
-  try{ localStorage.setItem(LOCAL_DATA_CACHE, JSON.stringify(D)); }catch(e){}
-}
-
-function loadCachedData(){
-  try{
-    const raw = localStorage.getItem(LOCAL_DATA_CACHE);
-    if(!raw) return false;
-    D = normalizeData(JSON.parse(raw));
-    return true;
-  }catch(e){ return false; }
-}
 
 async function save(message){
   try{
-    if(!dataLoadedFromGithub && !dataSha){
-      const remote = await ghGetJson(GH_DATA_PATH);
-      if(remote.json){
-        dataSha = remote.sha;
-        // Не разрешаем случайно перезаписать существующий data.json пустыми данными.
-        D = normalizeData(remote.json);
-        dataLoadedFromGithub = true;
-      }else{
-        dataLoadedFromGithub = true;
-      }
-    }
-
     const resp = await ghPutJson(GH_DATA_PATH, D, message||'Обновление данных сайта', dataSha);
     dataSha = resp.content.sha;
-    dataLoadedFromGithub = true;
-    cacheData();
     updateGhStatus();
     return true;
   }catch(e){
@@ -437,18 +371,10 @@ async function refreshFromGithub(){
   try{
     const {sha, json} = await ghGetJson(GH_DATA_PATH);
     dataSha = sha;
-    if(json){
-      D = normalizeData(json);
-      dataLoadedFromGithub = true;
-      cacheData();
-      renderProducts(); renderGallery(); renderVideos(); fillSettings();
-      toast('✅ Данные обновлены из GitHub');
-    }else{
-      D = normalizeData(D);
-      dataLoadedFromGithub = true;
-      cacheData();
-      toast('ℹ️ data.json ещё не создан');
-    }
+    D = json || {products:[],gallery:[],videos:[],settings:{}};
+    D.products=D.products||[]; D.gallery=D.gallery||[]; D.videos=D.videos||[]; D.settings=D.settings||{};
+    renderProducts(); renderGallery(); renderVideos(); fillSettings();
+    toast('✅ Данные обновлены из GitHub');
   }catch(e){ toast('⚠️ Не удалось получить данные: '+e.message); }
 }
 
@@ -501,24 +427,11 @@ const dataReady = (async function(){
   try{
     const {sha, json} = await ghGetJson(GH_DATA_PATH);
     dataSha = sha;
-    if(json){
-      D = normalizeData(json);
-      dataLoadedFromGithub = true;
-      cacheData();
-      document.getElementById('loginLoadState').textContent='Данные загружены. Введите пароль для входа.';
-    }else{
-      D = normalizeData(D);
-      dataLoadedFromGithub = true;
-      document.getElementById('loginLoadState').textContent='data.json пока не создан. Используется пароль по умолчанию.';
-    }
+    D = json || {products:[],gallery:[],videos:[],settings:{}};
+    D.products=D.products||[]; D.gallery=D.gallery||[]; D.videos=D.videos||[]; D.settings=D.settings||{};
+    document.getElementById('loginLoadState').textContent='Готово. Введите пароль для входа.';
   }catch(e){
-    // При временной ошибке сети используем последнюю локальную копию,
-    // но НЕ показываем её как актуальную версию GitHub.
-    if(loadCachedData()){
-      document.getElementById('loginLoadState').textContent='⚠️ GitHub временно недоступен. Используется сохранённая копия.';
-    }else{
-      document.getElementById('loginLoadState').textContent='⚠️ Не удалось загрузить данные. Обновите страницу и попробуйте снова.';
-    }
+    document.getElementById('loginLoadState').textContent='⚠️ Не удалось загрузить данные из GitHub, используется пароль по умолчанию.';
   }
 })();
 
