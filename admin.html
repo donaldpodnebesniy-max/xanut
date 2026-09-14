@@ -95,7 +95,6 @@ textarea{resize:vertical;min-height:90px}
 <nav>
 <button class="tab-btn active" data-tab="products">📦 Товары</button>
 <button class="tab-btn" data-tab="gallery">🖼️ Галерея</button>
-<button class="tab-btn" data-tab="videos">🎬 Видео</button>
 <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
 <button class="tab-btn" data-tab="data">💾 Данные и GitHub</button>
 </nav>
@@ -144,21 +143,6 @@ textarea{resize:vertical;min-height:90px}
 </div>
 </div>
 
-<!-- ВИДЕО -->
-<div class="panel" id="panel-videos">
-<h2 class="page-title">Видео</h2>
-<p class="page-sub">Вставьте ссылку на YouTube-видео или прямую ссылку на видеофайл (.mp4).</p>
-<div class="card">
-<h3>➕ Добавить видео</h3>
-<div class="frow">
-<div><label>Ссылка на видео *</label><input type="text" id="vUrl" placeholder="https://youtube.com/watch?v=..."></div>
-<div><label>Название (для себя)</label><input type="text" id="vName" placeholder="Например: Обзор магазина"></div>
-</div>
-<button class="btn btn-green" onclick="addVideo()">Добавить видео</button>
-</div>
-<div class="item-list" id="videoList"></div>
-</div>
-
 <!-- НАСТРОЙКИ -->
 <div class="panel" id="panel-settings">
 <h2 class="page-title">Настройки сайта</h2>
@@ -191,7 +175,7 @@ textarea{resize:vertical;min-height:90px}
 <!-- ДАННЫЕ -->
 <div class="panel" id="panel-data">
 <h2 class="page-title">Данные и GitHub</h2>
-<p class="page-sub">Все товары, фото, видео и настройки хранятся в репозитории <b>github.com/donaldpodnebesniy-max/xanut</b>, а не в этом браузере.</p>
+<p class="page-sub">Все товары, фото и настройки хранятся в репозитории <b>github.com/donaldpodnebesniy-max/xanut</b>, а не в этом браузере.</p>
 <div class="card">
 <h3>🔑 Токен доступа к GitHub</h3>
 <p style="color:var(--muted);font-size:.88rem;line-height:1.6;margin-bottom:14px">
@@ -392,7 +376,7 @@ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
 return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-let D = {products:[],gallery:[],videos:[],settings:{}};
+let D = {products:[],gallery:[],settings:{}};
 let dataSha = null;
 
 async function save(message){
@@ -412,9 +396,9 @@ async function refreshFromGithub(){
 try{
 const {sha, json} = await ghGetJson(GH_DATA_PATH);
 dataSha = sha;
-D = json || {products:[],gallery:[],videos:[],settings:{}};
-D.products=D.products||[]; D.gallery=D.gallery||[]; D.videos=D.videos||[]; D.settings=D.settings||{};
-renderProducts(); renderGallery(); renderVideos(); fillSettings();
+D = json || {products:[],gallery:[],settings:{}};
+D.products=D.products||[]; D.gallery=D.gallery||[]; D.settings=D.settings||{};
+renderProducts(); renderGallery(); fillSettings();
 toast('✅ Данные обновлены из GitHub');
 }catch(e){ toast('⚠️ Не удалось получить данные: '+e.message); }
 }
@@ -505,8 +489,8 @@ document.getElementById('loginLoadState').textContent='Подключаемся 
 try{
 const {sha, json} = await ghGetJson(GH_DATA_PATH);
 dataSha = sha;
-D = json || {products:[],gallery:[],videos:[],settings:{}};
-D.products=D.products||[]; D.gallery=D.gallery||[]; D.videos=D.videos||[]; D.settings=D.settings||{};
+D = json || {products:[],gallery:[],settings:{}};
+D.products=D.products||[]; D.gallery=D.gallery||[]; D.settings=D.settings||{};
 document.getElementById('loginLoadState').textContent='Готово. Введите пароль для входа.';
 }catch(e){
 document.getElementById('loginLoadState').textContent='⚠️ Не удалось загрузить данные из GitHub, используется пароль по умолчанию.';
@@ -530,7 +514,7 @@ async function enterApp(){
 document.getElementById('loginScreen').style.display='none';
 document.getElementById('app').classList.add('on');
 await dataReady;
-renderProducts(); renderGallery(); renderVideos(); fillSettings();
+renderProducts(); renderGallery(); fillSettings();
 updateGhStatus();
 }
 
@@ -649,37 +633,6 @@ if(!D.gallery.length){ box.innerHTML='<div class="empty" style="grid-column:1/-1
 box.innerHTML=D.gallery.map((g,i)=>`<div class="gal-it"><img src="${g}"><button onclick="delGallery(${i})">✕</button></div>`).join('');
 }
 
-/* ---------- видео ---------- */
-async function addVideo(){
-const url=document.getElementById('vUrl').value.trim();
-if(!url){ toast('Вставьте ссылку на видео'); return; }
-const name=document.getElementById('vName').value.trim();
-D.videos.push({url, name});
-const ok = await save('Добавлено видео: '+(name||url));
-if(!ok){ D.videos.pop(); return; }
-renderVideos(); toast('✅ Видео добавлено');
-document.getElementById('vUrl').value=''; document.getElementById('vName').value='';
-}
-
-async function delVideo(i){
-const v = D.videos[i];
-D.videos.splice(i,1);
-const ok = await save('Удалено видео');
-if(!ok){ D.videos.splice(i,0,v); return; }
-renderVideos();
-}
-
-function renderVideos(){
-const box=document.getElementById('videoList');
-if(!D.videos.length){ box.innerHTML='<div class="empty">Видео пока нет</div>'; return; }
-box.innerHTML=D.videos.map((v,i)=>`
-<div class="item">
-<div class="thumb">🎬</div>
-<div class="info"><b>${esc(v.name||'Видео')}</b><small>${esc(v.url)}</small></div>
-<button class="btn btn-red" onclick="delVideo(${i})">Удалить</button>
-</div>`).join('');
-}
-
 /* ---------- настройки ---------- */
 let sImageData=null;
 document.getElementById('sImg').onchange=async e=>{
@@ -731,22 +684,22 @@ r.onload=async ()=>{
 try{
 const d=JSON.parse(r.result);
 const prev=D;
-D=d; D.products=D.products||[]; D.gallery=D.gallery||[]; D.videos=D.videos||[]; D.settings=D.settings||{};
+D=d; D.products=D.products||[]; D.gallery=D.gallery||[]; D.settings=D.settings||{};
 const ok = await save('Импорт данных из резервной копии');
 if(!ok){ D=prev; return; }
-renderProducts(); renderGallery(); renderVideos(); fillSettings(); toast('✅ Данные загружены в GitHub');
+renderProducts(); renderGallery(); fillSettings(); toast('✅ Данные загружены в GitHub');
 }catch(err){ toast('⚠️ Неверный файл или ошибка сохранения'); }
 };
 r.readAsText(f); e.target.value='';
 };
 
 async function clearAll(){
-if(confirm('Удалить ВСЕ данные сайта (товары, фото, видео, настройки) из GitHub-репозитория? Это действие нельзя отменить.')){
+if(confirm('Удалить ВСЕ данные сайта (товары, фото, настройки) из GitHub-репозитория? Это действие нельзя отменить.')){
 const prev=D;
-D={products:[],gallery:[],videos:[],settings:{}};
+D={products:[],gallery:[],settings:{}};
 const ok = await save('Полная очистка данных сайта');
 if(!ok){ D=prev; return; }
-renderProducts(); renderGallery(); renderVideos(); fillSettings(); toast('Все данные удалены');
+renderProducts(); renderGallery(); fillSettings(); toast('Все данные удалены');
 }
 }
 </script>
