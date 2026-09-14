@@ -1,13 +1,5 @@
 {
-  "products": [
-    {
-      "name": "xmichq",
-      "price": "",
-      "cat": "Напитки",
-      "desc": "",
-      "image": "https://raw.githubusercontent.com/donaldpodnebesniy-max/xanut/main/uploads/products/1789415010963-oymkvt.jpg"
-    }
-  ],
+  "products": [],
   "gallery": [
     "https://raw.githubusercontent.com/donaldpodnebesniy-max/xanut/main/uploads/gallery/1789414673675-8rppbd.jpg",
     "https://raw.githubusercontent.com/donaldpodnebesniy-max/xanut/main/uploads/gallery/1789414675364-d3af2q.jpg",
