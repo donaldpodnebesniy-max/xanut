@@ -147,11 +147,6 @@ section{padding:100px 6vw}
 .price{margin-top:12px;font-weight:800;color:var(--green);font-size:1.15rem}
 .empty-note{text-align:center;color:var(--muted);padding:30px;font-size:1rem}
 
-/* ---------- videos ---------- */
-.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:26px;max-width:1150px;margin:0 auto}
-.video-card{border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#000;aspect-ratio:16/9;position:relative}
-.video-card iframe,.video-card video{width:100%;height:100%;border:0}
-
 /* ---------- gallery ---------- */
 #gallery{background:var(--green-d)}
 #gallery .sec-tag{background:rgba(255,255,255,.1);color:var(--accent)}
@@ -217,7 +212,6 @@ footer a.admin-link:hover{color:var(--accent)}
   <ul class="nav-links" id="navLinks">
     <li><a href="#about" data-i18n="nav.about">О нас</a></li>
     <li><a href="#products" data-i18n="nav.products">Товары</a></li>
-    <li><a href="#videos" data-i18n="nav.videos">Видео</a></li>
     <li><a href="#gallery" data-i18n="nav.gallery">Галерея</a></li>
     <li><a href="#why" data-i18n="nav.why">Почему мы</a></li>
     <li><a href="#contacts" data-i18n="nav.contacts">Контакты</a></li>
@@ -283,15 +277,6 @@ footer a.admin-link:hover{color:var(--accent)}
   <div class="grid" id="productGrid"></div>
 </section>
 
-<section id="videos">
-  <div class="sec-head reveal">
-    <span class="sec-tag" data-i18n="videos.tag">ВИДЕО</span>
-    <h2 data-i18n="videos.h2">Видео о нашем супермаркете</h2>
-    <p data-i18n="videos.sub">Загляните к нам, не выходя из дома</p>
-  </div>
-  <div class="video-grid" id="videoGrid"></div>
-</section>
-
 <section id="gallery">
   <div class="sec-head reveal">
     <span class="sec-tag" data-i18n="gallery.tag">ГАЛЕРЕЯ</span>
@@ -339,7 +324,7 @@ footer a.admin-link:hover{color:var(--accent)}
 /* ================= i18n ================= */
 const I18N = {
   ru:{
-    'nav.about':'О нас','nav.products':'Товары','nav.videos':'Видео','nav.gallery':'Галерея','nav.why':'Почему мы','nav.contacts':'Контакты',
+    'nav.about':'О нас','nav.products':'Товары','nav.gallery':'Галерея','nav.why':'Почему мы','nav.contacts':'Контакты',
     'hero.badge':'СВЕЖЕСТЬ • КАЧЕСТВО • ЗАБОТА',
     'hero.subtitle':'Свежие продукты каждый день — от местных фермеров и лучших производителей прямо на ваш стол.',
     'hero.btn1':'Наши товары','hero.btn2':'Узнать больше','hero.scroll':'ЛИСТАЙТЕ ВНИЗ',
@@ -348,7 +333,6 @@ const I18N = {
     'about.h3':'Свежесть и качество — наш главный принцип',
     'about.stat1':'товаров в ассортименте','about.stat2':'покупателей в день','about.stat3':'% свежесть продуктов',
     'products.tag':'АССОРТИМЕНТ','products.h2':'Наши товары',
-    'videos.tag':'ВИДЕО','videos.h2':'Видео о нашем супермаркете','videos.sub':'Загляните к нам, не выходя из дома',
     'gallery.tag':'ГАЛЕРЕЯ','gallery.h2':'Фотогалерея','gallery.sub':'Атмосфера нашего магазина','gallery.alt':'Фото магазина',
     'why.tag':'ПРЕИМУЩЕСТВА','why.h2':'Почему выбирают нас',
     'why.1.h':'Всегда свежее','why.1.p':'Ежедневные поставки от проверенных фермеров и производителей.',
@@ -362,7 +346,7 @@ const I18N = {
     'cats.Все':'Все','cats.Фрукты':'Фрукты','cats.Овощи':'Овощи','cats.Молочное':'Молочное','cats.Выпечка':'Выпечка','cats.Мясо':'Мясо','cats.Напитки':'Напитки','cats.Сладости':'Сладости','cats.Другое':'Другое'
   },
   hy:{
-    'nav.about':'Մեր մասին','nav.products':'Ապրանքներ','nav.videos':'Տեսանյութեր','nav.gallery':'Պատկերասրահ','nav.why':'Ինչու՞ մենք','nav.contacts':'Կոնտակտներ',
+    'nav.about':'Մեր մասին','nav.products':'Ապրանքներ','nav.gallery':'Պատկերասրահ','nav.why':'Ինչու՞ մենք','nav.contacts':'Կոնտակտներ',
     'hero.badge':'ԹԱՐՄՈՒԹՅՈՒՆ • ՈՐԱԿ • ՀՈԳԱՏԱՐՈՒԹՅՈՒՆ',
     'hero.subtitle':'Թարմ մթերքներ ամեն օր՝ տեղական ֆերմերներից և լավագույն արտադրողներից անմիջապես ձեր սեղանին։',
     'hero.btn1':'Մեր ապրանքները','hero.btn2':'Իմանալ ավելին','hero.scroll':'ոլորեք ներքև',
@@ -371,7 +355,6 @@ const I18N = {
     'about.h3':'Թարմություն և որակ — մեր հիմնական սկզբունքը',
     'about.stat1':'ապրանք տեսականիում','about.stat2':'գնորդ օրական','about.stat3':'% մթերքի թարմություն',
     'products.tag':'ԱՍՈՐՏԻՄԵՆՏ','products.h2':'Մեր ապրանքները',
-    'videos.tag':'ՏԵՍԱՆՅՈՒԹ','videos.h2':'Տեսանյութեր մեր սուպերմարկետի մասին','videos.sub':'Այցելեք մեզ՝ առանց տնից դուրս գալու',
     'gallery.tag':'ՊԱՏԿԵՐԱՍՐԱՀ','gallery.h2':'Լուսանկարների պատկերասրահ','gallery.sub':'Մեր խանութի մթնոլորտը','gallery.alt':'Խանութի լուսանկար',
     'why.tag':'ԱՌԱՎԵԼՈՒԹՅՈՒՆՆԵՐ','why.h2':'Ինչու՞ են ընտրում մեզ',
     'why.1.h':'Միշտ թարմ','why.1.p':'Ամենօրյա մատակարարումներ ստուգված ֆերմերներից և արտադրողներից։',
@@ -385,7 +368,7 @@ const I18N = {
     'cats.Все':'Բոլորը','cats.Фрукты':'Մրգեր','cats.Овощи':'Բանջարեղեն','cats.Молочное':'Կաթնամթերք','cats.Выпечка':'Հացաբուլկեղեն','cats.Мясо':'Միս','cats.Напитки':'Խմիչքներ','cats.Сладости':'Քաղցրավենիք','cats.Другое':'Այլ'
   },
   en:{
-    'nav.about':'About','nav.products':'Products','nav.videos':'Videos','nav.gallery':'Gallery','nav.why':'Why Us','nav.contacts':'Contacts',
+    'nav.about':'About','nav.products':'Products','nav.gallery':'Gallery','nav.why':'Why Us','nav.contacts':'Contacts',
     'hero.badge':'FRESHNESS • QUALITY • CARE',
     'hero.subtitle':'Fresh products every day — from local farmers and the best producers straight to your table.',
     'hero.btn1':'Our Products','hero.btn2':'Learn More','hero.scroll':'SCROLL DOWN',
@@ -394,7 +377,6 @@ const I18N = {
     'about.h3':'Freshness and quality — our core principle',
     'about.stat1':'products in range','about.stat2':'customers per day','about.stat3':'% product freshness',
     'products.tag':'RANGE','products.h2':'Our Products',
-    'videos.tag':'VIDEOS','videos.h2':'Videos about our supermarket','videos.sub':'Take a look without leaving home',
     'gallery.tag':'GALLERY','gallery.h2':'Photo Gallery','gallery.sub':'The atmosphere of our store','gallery.alt':'Store photo',
     'why.tag':'ADVANTAGES','why.h2':'Why choose us',
     'why.1.h':'Always fresh','why.1.p':'Daily deliveries from trusted farmers and producers.',
@@ -430,7 +412,7 @@ document.querySelectorAll('.lang-switch button').forEach(b=>{
 // Если товаров нет, раздел просто остаётся пустым.
 const CAT_EMOJI = {'Фрукты':'🍎','Овощи':'🥦','Молочное':'🥛','Выпечка':'🥖','Мясо':'🥩','Напитки':'🧃','Сладости':'🍬','Другое':'🛍️'};
 
-// Репозиторий, из которого сайт читает все данные (товары, фото, видео, настройки).
+// Репозиторий, из которого сайт читает все данные (товары, фото, настройки).
 const GH_OWNER  = 'donaldpodnebesniy-max';
 const GH_REPO   = 'xanut';
 const GH_BRANCH = 'main';
@@ -504,28 +486,6 @@ function renderFilters(){
 }
 // пока данные из GitHub не загружены — все разделы просто пустые (без демо-данных)
 
-/* ================= видео ================= */
-let vids = [];
-const vGrid = document.getElementById('videoGrid');
-function ytEmbed(url){
-  const m = url.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);
-  return m ? 'https://www.youtube.com/embed/'+m[1] : null;
-}
-function renderVideos(){
-  vGrid.innerHTML='';
-  vids.forEach((v,i)=>{
-    const wrap=document.createElement('div');
-    wrap.className='video-card reveal zoom';
-    wrap.style.transitionDelay=(i*0.1)+'s';
-    const yt = ytEmbed(v.url||'');
-    wrap.innerHTML = yt
-      ? `<iframe src="${yt}" allowfullscreen loading="lazy"></iframe>`
-      : `<video src="${v.url}" controls preload="metadata"></video>`;
-    vGrid.appendChild(wrap);
-  });
-  observeAll();
-}
-
 /* ================= галерея ================= */
 let gal = [];
 const gGrid = document.getElementById('galleryGrid');
@@ -557,12 +517,10 @@ function applySettings(){
 async function initData(){
   D = await loadData();
   products = D.products || [];
-  vids = D.videos || [];
   gal = D.gallery || [];
   S = D.settings || {};
   renderFilters();
   renderProducts('Все');
-  renderVideos();
   renderGallery();
   applySettings();
   applyLang(getLang()); // перерисовать с учётом текущего языка
